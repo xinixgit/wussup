@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:task="http://www.springframework.org/schema/task" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+         http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context-3.1.xsd
+         http://www.springframework.org/schema/task
+         http://www.springframework.org/schema/task/spring-task-3.1.xsd
+         http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.1.xsd
+         http://www.springframework.org/schema/util 
+         http://www.springframework.org/schema/util/spring-util-3.1.xsd"
+	default-init-method="init" default-destroy-method="cleanup">
+	
+	<!-- Enable @Autowire -->
+	<context:annotation-config />
+
+	<bean id="serviceManager" class="wsup.service.ServiceManager">
+		<property name="searchService" ref="searchService" />
+		<property name="userService" ref="userService" />
+		<property name="activityService" ref="activityService" />
+	</bean>
+	
+	<bean id="searchService" class="wsup.service.SearchService">
+		<property name="taskGroup" ref="searchServiceTaskGroup" />
+	</bean>
+	
+	<bean id="searchServiceTaskGroup" class="wsup.task.FirstResultSequentialTaskGroup" scope="request">
+		<aop:scoped-proxy />
+		<property name="taskList">
+			<list>
+				<ref bean="dbSearchTaskBean" />
+				<ref bean="webSearchTaskBean" />
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="dbSearchTaskBean" class="wsup.task.search.DBSearchTask" scope="request" />
+	
+	<bean id="webSearchTaskBean" class="wsup.task.search.WebSearchTask" scope="request">
+		<property name="urlPrefix" value="http://www.merriam-webster.com/dictionary/" />
+		<property name="blockStart">
+			<value>class="\w*?ld_on_collegiate\w*?"</value>
+		</property>
+		<property name="blockEnd">
+			<value>id\w*?="\w*?scrabble_speed_bump_container\w*?"</value>
+		</property>
+	</bean>
+	
+	<bean id="userService" class="wsup.service.UserService">
+		<property name="userDBHandler" ref="userDBHandler" />
+	</bean>
+	
+	<bean id="activityService" class="wsup.service.ActivityService">
+		<property name="defHandler" ref="defHandler" />
+		<property name="userDBHandler" ref="userDBHandler" />
+		<property name="activityDBHandler" ref="activityDBHandler" />
+		<property name="syncService" ref="syncActivityService" />
+	</bean>
+	
+	<bean id="syncActivityService" class="wsup.service.SyncActivityService">
+		<property name="defHandler" ref="defHandler" />
+		<property name="userDBHandler" ref="userDBHandler" />
+		<property name="activityDBHandler" ref="activityDBHandler" />
+	</bean>
+	
+	<bean id="userDBHandler" class="wsup.db.user.UserDBHandler" scope="request">
+		<aop:scoped-proxy />
+	</bean>
+	
+	<bean id="activityDBHandler" class="wsup.db.activity.ActivityDBHandler" scope="request">
+		<aop:scoped-proxy />
+	</bean>
+
+	<bean id="defHandler" class="wsup.db.def.DefDBHandler" scope="request">
+		<aop:scoped-proxy />
+	</bean>
+	
+	<bean id="requestHolder" class="wsup.web.RequestHolder" scope="request" />
+	
+	<bean id="strongEncryptor" class="org.jasypt.encryption.pbe.StandardPBEStringEncryptor">
+    	<property name="algorithm">
+        	<value>PBEWithMD5AndTripleDES</value>
+    	</property>
+    	<property name="password">
+        	<value>wussupftw</value>
+    	</property>
+	</bean>
+	
+	<import resource="config/spring-cassandra.xml" />
+	<import resource="config/security.xml" />	<!--  Need to import this at last because interceptor may be autowired with appl. beans -->
+</beans>
